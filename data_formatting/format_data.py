@@ -18,8 +18,7 @@ from sklearn import preprocessing
 from datetime import datetime
 from scipy.spatial.transform import Rotation as R
 
-# dataset_path = "/home/willmandil/Robotics/Data_sets/PRI/Dataset3_MarkedHeavyBox/"
-dataset_path = "/home/willmandil/Robotics/Data_sets/PRI/object1_motion1_combined/"
+dataset_path = "/home/willmandil/Robotics/Data_sets/PRI/shelf_can/"
 # Hyper-parameters:
 train_data_dir = dataset_path + 'train/'
 test_data_dir = dataset_path + 'test/'
@@ -28,7 +27,13 @@ test_data_dir = dataset_path + 'test/'
 train_out_dir  = dataset_path + 'test_formatted/'
 test_out_dir   = dataset_path + 'train_formatted/'
 # test_out_dir_2 = dataset_path + 'test_edge_case_100p/'
-scaler_out_dir = dataset_path + 'filler_scaler/'
+scaler_out_dir = dataset_path + 'scaler/'
+
+for path in [train_out_dir, test_out_dir, scaler_out_dir]:
+    try:
+        os.mkdir(dataset_path + path)
+    except FileExistsError or FileNotFoundError:
+        pass
 
 smooth = False
 image = False
@@ -52,7 +57,7 @@ lines = ["smooth: " + str(smooth),
          "test_data_dir: " + str(test_data_dir),
          "train_out_dir: " + str(train_out_dir),
          "test_out_dir: " + str(test_out_dir),
-         "test_out_dir_2: " + str(test_out_dir_2),
+         # "test_out_dir_2: " + str(test_out_dir_2),
          "scaler_out_dir: " + str(scaler_out_dir)]
 with open(scaler_out_dir + "dataset_info.txt", 'w') as f:
     for line in lines:
@@ -78,7 +83,7 @@ class data_formatter:
         self.data_train_percentage = data_train_percentage
 
     def create_map(self):
-        for stage in [test_out_dir_2]:  #[train_out_dir, test_out_dir, test_out_dir_2]:
+        for stage in [train_out_dir, test_out_dir]:#, test_out_dir_2]:
             self.path_file = []
             index_to_save = 0
             print(stage)
@@ -86,8 +91,8 @@ class data_formatter:
                 files_to_run = self.files_train
             elif stage == test_out_dir:
                 files_to_run = self.files_test
-            elif stage == test_out_dir_2:
-                files_to_run = self.files_test_2
+            # elif stage == test_out_dir_2:
+            #     files_to_run = self.files_test_2
             print(files_to_run)
             path_save = stage
             for experiment_number, file in tqdm(enumerate(files_to_run)):
