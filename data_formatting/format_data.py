@@ -19,29 +19,25 @@ from datetime import datetime
 from scipy.spatial.transform import Rotation as R
 
 dataset_path = "/home/willmandil/Robotics/Data_sets/PRI/shelf_can/"
-# Hyper-parameters:
 train_data_dir = dataset_path + 'train/'
 test_data_dir = dataset_path + 'test/'
-# test_data_dir_2= dataset_path + 'test_edge_cases/'
-
-train_out_dir  = dataset_path + 'test_formatted/'
-test_out_dir   = dataset_path + 'train_formatted/'
-# test_out_dir_2 = dataset_path + 'test_edge_case_100p/'
+train_out_dir  = dataset_path + 'train_formatted/'
+test_out_dir   = dataset_path + 'test_formatted/'
 scaler_out_dir = dataset_path + 'scaler/'
 
 for path in [train_out_dir, test_out_dir, scaler_out_dir]:
     try:
-        os.mkdir(dataset_path + path)
+        os.mkdir(path)
     except FileExistsError or FileNotFoundError:
         pass
 
 smooth = False
-image = False
+image = True
 image_height = 64
 image_width = 64
-context_length = 2
-horrizon_length = 5
-one_sequence_per_test = False
+context_length = 0
+horrizon_length = 70
+one_sequence_per_test = True
 data_train_percentage = 1.0
 
 lines = ["smooth: " + str(smooth),
@@ -57,7 +53,6 @@ lines = ["smooth: " + str(smooth),
          "test_data_dir: " + str(test_data_dir),
          "train_out_dir: " + str(train_out_dir),
          "test_out_dir: " + str(test_out_dir),
-         # "test_out_dir_2: " + str(test_out_dir_2),
          "scaler_out_dir: " + str(scaler_out_dir)]
 with open(scaler_out_dir + "dataset_info.txt", 'w') as f:
     for line in lines:
@@ -83,7 +78,7 @@ class data_formatter:
         self.data_train_percentage = data_train_percentage
 
     def create_map(self):
-        for stage in [train_out_dir, test_out_dir]:#, test_out_dir_2]:
+        for stage in [train_out_dir, test_out_dir]:
             self.path_file = []
             index_to_save = 0
             print(stage)
@@ -91,20 +86,11 @@ class data_formatter:
                 files_to_run = self.files_train
             elif stage == test_out_dir:
                 files_to_run = self.files_test
-            # elif stage == test_out_dir_2:
-            #     files_to_run = self.files_test_2
             print(files_to_run)
             path_save = stage
-            for experiment_number, file in tqdm(enumerate(files_to_run)):
-                # if stage != train_out_dir:
-                #     path_save = stage + "test_trial_" + str(experiment_number) + '/'
-                #     os.mkdir(path_save)
-                #     self.path_file = []
-                #     index_to_save = 0
-                # else:
-                #     path_save = stage
+            for experiment_number, file in tqdm(enumerate(files_to_run), total=len(files_to_run)):
 
-                tactile, robot, image, depth = self.load_file_data(file)
+                tactile, robot, image, depth, side_image = self.load_file_data(file)
 
                 # scale the data
                 for index, (standard_scaler, min_max_scalar) in enumerate(zip(self.tactile_standard_scaler, self.tactile_min_max_scalar)):
@@ -138,19 +124,18 @@ class data_formatter:
                     np.save(path_save + 'image_name_sequence_' + str(index_to_save), image_name_sequence)
                     np.save(path_save + 'experiment_number_' + str(index_to_save), experiment_data_sequence)
                     np.save(path_save + 'time_step_data_' + str(index_to_save), time_step_data_sequence)
+                    np.save(path_save + 'side_view_image_' + str(index_to_save), np.array(side_image))
                     ref = []
                     ref.append('robot_data_euler_' + str(index_to_save) + '.npy')
                     ref.append('tactile_data_sequence_' + str(index_to_save) + '.npy')
                     ref.append('image_name_sequence_' + str(index_to_save) + '.npy')
                     ref.append('experiment_number_' + str(index_to_save) + '.npy')
                     ref.append('time_step_data_' + str(index_to_save) + '.npy')
+                    ref.append('side_view_image_' + str(index_to_save) + '.npy')
                     self.path_file.append(ref)
                     index_to_save += 1
                     if self.one_sequence_per_test:
                         break
-                # if stage != train_out_dir:
-                #     self.test_no = experiment_number
-                #     self.save_map(path_save, test=True)
 
             self.save_map(path_save)
 
@@ -158,20 +143,20 @@ class data_formatter:
         if test:
             with open(path + '/map_' + str(self.test_no) + '.csv', 'w') as csvfile:
                 writer = csv.writer(csvfile, quoting=csv.QUOTE_ALL)
-                writer.writerow(['robot_data_path_euler', 'tactile_data_sequence', 'image_name_sequence', 'experiment_number', 'time_steps'])
+                writer.writerow(['robot_data_path_euler', 'tactile_data_sequence', 'image_name_sequence', 'experiment_number', 'time_steps', "side_view_image"])
                 for row in self.path_file:
                     writer.writerow(row)
         else:
             with open(path + '/map.csv', 'w') as csvfile:
                 writer = csv.writer(csvfile, quoting=csv.QUOTE_ALL)
-                writer.writerow(['robot_data_path_euler', 'tactile_data_sequence', 'image_name_sequence', 'experiment_number', 'time_steps'])
+                writer.writerow(['robot_data_path_euler', 'tactile_data_sequence', 'image_name_sequence', 'experiment_number', 'time_steps', 'side_view_image'])
                 for row in self.path_file:
                     writer.writerow(row)
 
     def scale_data(self):
         files = self.files_train + self.files_test
         for file in tqdm(files):
-            tactile, robot, image, depth = self.load_file_data(file)
+            tactile, robot, image, depth, side_image = self.load_file_data(file)
             self.full_data_tactile += list(tactile)
             self.full_data_robot += list(robot)
 
@@ -190,6 +175,7 @@ class data_formatter:
         xela_sensor = np.array(np.load(file + '/tactile_states.npy'))
         image_data = np.array(np.load(file + '/color_images.npy'))
         depth_data = np.array(np.load(file + '/depth_images.npy'))
+        side_image = np.array(np.load(file + '/start_color_side.npy'))
 
         # convert orientation to euler, and remove column labels:
         robot_task_space = np.array([[state[-7], state[-6], state[-5]] + list(R.from_quat([state[-4], state[-3], state[-2], state[-1]]).as_euler('zyx', degrees=True)) for state in robot_state[1:]]).astype(float)
@@ -200,50 +186,28 @@ class data_formatter:
         tactile_offsets = [[tactile_mean_start_values[feature] - tactile_starting_value for tactile_starting_value in tactile_data_split[feature][0]] for feature in range(3)]
         tactile_data = [[tactile_data_split[feature][ts] + tactile_offsets[feature] for feature in range(3)] for ts in range(tactile_data_split[0].shape[0])]
 
-        # image_data = image_data.astype(np.float32) / 255.0
-        # depth_data = depth_data.astype(np.float32) / 255.0
-
         # Resize the image using PIL antialiasing method (Copied from CDNA data formatting)
         raw = []
         for k in range(len(image_data)):
             tmp = Image.fromarray(image_data[k])
             tmp = tmp.resize((image_height, image_width), Image.ANTIALIAS)
-            tmp = np.fromstring(tmp.tobytes(), dtype=np.uint8)
+            tmp = np.frombuffer(tmp.tobytes(), dtype=np.uint8)
             tmp = tmp.reshape((image_height, image_width, 3))
             tmp = tmp.astype(np.float32) / 255.0
             raw.append(tmp)
         image_data = np.array(raw)
-        #
-        # raw = []
-        # for k in range(len(depth_data)):
-        #     tmp = Image.fromarray(depth_data[k])
-        #     plt.figure(1)
-        #     plt.imshow(tmp)
-        #     plt.show()
-        #     tmp = tmp.resize((image_height, image_width), Image.BILINEAR)
-        #     tmp = np.fromstring(tmp.tobytes(), dtype=np.uint8)
-        #     tmp = tmp[:int(tmp.shape[0] / 2)]
-        #     tmp = tmp.reshape((image_height, image_width))
-        #     tmp = tmp.astype(np.float32) / 255.0
-        #     plt.figure(1)
-        #     plt.imshow(tmp)
-        #     plt.show()
-        #     raw.append(tmp)
-        # depth_data = np.array(raw)
 
-        if self.smooth:
-            tactile_data = self.smooth_the_trial(np.array(tactile_data))
-            tactile_data = tactile_data[3:-3, :, :]
-            robot_task_space = robot_task_space[3:-3, :]
-            image_data = image_data[3:-3]
-            depth_data = depth_data[3:-3]
+        tmp = Image.fromarray(side_image)
+        tmp = tmp.resize((image_height, image_width), Image.ANTIALIAS)
+        tmp = np.frombuffer(tmp.tobytes(), dtype=np.uint8)
+        tmp = tmp.reshape((image_height, image_width, 3))
+        side_image = tmp.astype(np.float32) / 255.0
 
-        return np.array(tactile_data), robot_task_space, image_data, depth_data
+        return np.array(tactile_data), robot_task_space, image_data, depth_data, side_image
 
     def load_file_names(self):
         self.files_train = glob.glob(train_data_dir + '/*')
         self.files_test = glob.glob(test_data_dir + '/*')
-        self.files_test_2 = glob.glob(test_data_dir_2 + '/*')
         self.files_train = random.sample(self.files_train, int(len(self.files_train) * self.data_train_percentage))
 
     def smooth_the_trial(self, tactile_data):

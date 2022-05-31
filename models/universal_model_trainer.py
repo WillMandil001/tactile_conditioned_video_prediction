@@ -53,8 +53,8 @@ class BatchGenerator:
         dataset_train = FullDataSet(self.data_map, self.train_data_dir, train=True, train_percentage=self.train_percentage, image_size=self.image_size, occlusion_test=self.occlusion_test, occlusion_size=self.occlusion_size)
         dataset_validate = FullDataSet(self.data_map, self.train_data_dir, validation=True, train_percentage=self.train_percentage, image_size=self.image_size, occlusion_test=self.occlusion_test, occlusion_size=self.occlusion_size)
         transform = torchvision.transforms.Compose([torchvision.transforms.ToTensor()])
-        train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers)
-        validation_loader = torch.utils.data.DataLoader(dataset_validate, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers)
+        train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, pin_memory=True)
+        validation_loader = torch.utils.data.DataLoader(dataset_validate, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers, pin_memory=True)
         self.data_map = []
         return train_loader, validation_loader
 
@@ -235,7 +235,7 @@ class UniversalModelTrainer:
                 if epoch >= self.occlusion_start_epoch:
                     occlusion_gain += self.occlusion_gain_per_epoch
                     if self.occlusion_max_size < occlusion_gain:
-                        if self.start_saving_now:  # reset the validation scores, so that the models will be saved wrt the occlusion at its highest setting.
+                        if self.start_saving_now:
                             previous_val_mean_loss = 100.0
                             best_val_loss = 100.0
                         self.start_saving_now = False
@@ -255,24 +255,38 @@ class UniversalModelTrainer:
                     if self.gain > 0.01:
                         self.gain = 0.01
 
+                print("hello :D ", batch_features[1].shape)
                 if batch_features[1].shape[0] == self.batch_size:
-                    mae, kld, mae_tactile, predictions = self.format_and_run_batch(batch_features, test=False)
-                    epoch_mae_losses += mae.item()
-                    if kld != None:
-                        epoch_kld_losses += kld.item()
-                        kld = float(kld.item())
-                    else:
-                        kld = 100
-                    if index:
-                        mean_mae = epoch_mae_losses / index
-                        if kld != None:
-                            mean_kld = epoch_kld_losses / index
-                    else:
-                        mean_kld = 0.0
-                        mean_mae = 0.0
+                    pass
+                else:
+                    cut_size = batch_features[0].shape[0]
+                    print(cut_size)
+                    batch_features[0] = torch.cat((batch_features[0], torch.zeros(self.batch_size - batch_features[0].shape[0], batch_features[0].shape[1], batch_features[0].shape[2])), 0)
+                    batch_features[1] = torch.cat((batch_features[1], torch.zeros(self.batch_size - batch_features[1].shape[0], batch_features[1].shape[1], batch_features[1].shape[2], batch_features[1].shape[3], batch_features[1].shape[4])), 0)
+                    batch_features[2] = torch.cat((batch_features[2], torch.zeros(self.batch_size - batch_features[2].shape[0], batch_features[2].shape[1], batch_features[2].shape[2], batch_features[2].shape[3], batch_features[2].shape[4])), 0)
+                    batch_features[3] = torch.cat((batch_features[3], torch.zeros(self.batch_size - batch_features[3].shape[0], batch_features[3].shape[1], batch_features[3].shape[2], batch_features[3].shape[3])), 0)
+                    batch_features[4] = torch.cat((batch_features[4], torch.zeros(self.batch_size - batch_features[4].shape[0])), 0)
+                    batch_features[5] = torch.cat((batch_features[5], torch.zeros(self.batch_size - batch_features[5].shape[0], batch_features[5].shape[1])), 0)
 
-                    progress_bar.set_description("epoch: {}, ".format(epoch) + "MAE: {:.4f}, ".format(float(mae.item())) + "kld: {:.4f}, ".format(kld) + "mean MAE: {:.4f}, ".format(mean_mae) + "mean kld: {:.4f}, ".format(mean_kld))
-                    progress_bar.update()
+                print("hello :D ", batch_features[1].shape)
+
+                mae, kld, mae_tactile, predictions = self.format_and_run_batch(batch_features, test=False)
+                epoch_mae_losses += mae.item()
+                if kld != None:
+                    epoch_kld_losses += kld.item()
+                    kld = float(kld.item())
+                else:
+                    kld = 100
+                if index:
+                    mean_mae = epoch_mae_losses / index
+                    if kld != None:
+                        mean_kld = epoch_kld_losses / index
+                else:
+                    mean_kld = 0.0
+                    mean_mae = 0.0
+
+                progress_bar.set_description("epoch: {}, ".format(epoch) + "MAE: {:.4f}, ".format(float(mae.item())) + "kld: {:.4f}, ".format(kld) + "mean MAE: {:.4f}, ".format(mean_mae) + "mean kld: {:.4f}, ".format(mean_kld))
+                progress_bar.update()
 
             plot_training_loss.append([mean_mae, mean_kld])
 
@@ -360,9 +374,9 @@ class UniversalModelTrainer:
 @click.option('--seed', type=click.INT, default = 1, help = "")
 @click.option('--image_width', type=click.INT, default = 64, help = "Size of scene image data")
 @click.option('--dataset', type=click.Path(), default = 'Dataset3_MarkedHeavyBox', help = "name of the dataset")
-@click.option('--n_past', type=click.INT, default = 2, help = "context sequence length")
-@click.option('--n_future', type=click.INT, default = 5, help = "time horizon sequence length")
-@click.option('--n_eval', type=click.INT, default = 7, help = "sum of context and time horizon")
+@click.option('--n_past', type=click.INT, default = 1, help = "context sequence length")
+@click.option('--n_future', type=click.INT, default = 68, help = "time horizon sequence length")
+@click.option('--n_eval', type=click.INT, default = 69, help = "sum of context and time horizon")
 @click.option('--prior_rnn_layers', type=click.INT, default = 3, help = "number of LSTMs in the prior model")
 @click.option('--posterior_rnn_layers', type=click.INT, default = 3, help = "number of LSTMs in the posterior model")
 @click.option('--predictor_rnn_layers', type=click.INT, default = 4, help = "number of LSTMs in the frame predictor model")
@@ -384,9 +398,9 @@ class UniversalModelTrainer:
 @click.option('--training_stages', type=click.Path(), default = "", help = "define the training stages - if none leave blank - available: 3part")
 @click.option('--training_stages_epochs', type=click.Path(), default = "50,75,125", help = "define the end point of each training stage")
 @click.option('--num_workers', type=click.INT, default = 12, help = "number of workers used by the data loader")
-@click.option('--model_save_path', type=click.Path(), default = "/home/willmandil/Robotics/SPOTS/models/universal_models/saved_models/", help = "")
-@click.option('--train_data_dir', type=click.Path(), default = "/home/willmandil/Robotics/Data_sets/PRI/Dataset3_MarkedHeavyBox/train_formatted_trial_per_sequence/", help = "")
-@click.option('--scaler_dir', type=click.Path(), default = "/home/willmandil/Robotics/Data_sets/PRI/object1_motion1_combined/scalars_trial_per_sequence/", help = "")
+@click.option('--model_save_path', type=click.Path(), default = "/home/willmandil/Robotics/tactile_conditioned_video_prediction/models/saved_models/", help = "")
+@click.option('--train_data_dir', type=click.Path(), default = "/home/willmandil/Robotics/Data_sets/PRI/shelf_can/train_formatted/", help = "")
+@click.option('--scaler_dir', type=click.Path(), default = "/home/willmandil/Robotics/Data_sets/PRI/shelf_can/scaler/", help = "")
 @click.option('--model_name_save_appendix', type=click.Path(), default = "", help = "What to add to the save file to identify the model as a specific subset (_1c= 1 conditional frame, GTT=groundtruth tactile data)")
 @click.option('--tactile_encoder_hidden_size', type=click.INT, default = 0, help = "Size of hidden layer in tactile encoder, 200")
 @click.option('--tactile_encoder_output_size', type=click.INT, default = 0, help = "size of output layer from tactile encoder, 100")
