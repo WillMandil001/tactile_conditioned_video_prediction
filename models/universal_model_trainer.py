@@ -18,14 +18,6 @@ import torchvision
 
 # standard video and tactile prediction models:
 from universal_networks.SVG import Model as SVG
-from universal_networks.SVTG_SE import Model as SVTG_SE
-from universal_networks.VTG_SE import Model as VTG_SE
-from universal_networks.SPOTS_SVG_ACTP import Model as SPOTS_SVG_ACTP
-from universal_networks.SPOTS_SVG_PTI_ACTP import Model as SPOTS_SVG_PTI_ACTP
-from universal_networks.SPOTS_SVG_ACTP_STP import Model as SPOTS_SVG_ACTP_STP
-
-# Tactile enhanced models:
-from universal_networks.SVG_TE import Model as SVG_TE
 
 # tactile conditioned models:
 from universal_networks.SVG_TC import Model as SVG_TC
@@ -33,13 +25,9 @@ from universal_networks.SVG_TC_TE import Model as SVG_TC_TE
 
 # non-stochastic models:
 from universal_networks.VG import Model as VG
-from universal_networks.SPOTS_VG_ACTP import Model as SPOTS_VG_ACTP
 from universal_networks.VG_MMMM import Model as VG_MMMM
 
 # artificial occlusion training:
-from universal_networks.SVG_occ import Model as SVG_occ
-from universal_networks.SVTG_SE_occ import Model as SVTG_SE_occ
-from universal_networks.SPOTS_SVG_ACTP_occ import Model as SPOTS_SVG_ACTP_occ
 from universal_networks.SVG_TC_occ import Model as SVG_TC_occ
 from universal_networks.SVG_TC_TE_occ import Model as SVG_TC_TE_occ
 
@@ -197,38 +185,18 @@ class UniversalModelTrainer:
 
         if self.model_name == "SVG":
             self.model = SVG(features)
-        elif self.model_name == "SVG_occ":
-            self.model = SVG_occ(features)
-        elif self.model_name == "SVTG_SE":
-            self.model = SVTG_SE(features)
-        elif self.model_name == "VTG_SE":
-            self.model = VTG_SE(features)
-        elif self.model_name == "SVTG_SE_occ":
-            self.model = SVTG_SE_occ(features)
-        elif self.model_name == "SPOTS_SVG_ACTP":
-            self.model = SPOTS_SVG_ACTP(features)
-        elif self.model_name == "SPOTS_SVG_PTI_ACTP":
-            self.model = SPOTS_SVG_PTI_ACTP(features)
         elif self.model_name == "SVG_TC":
             self.model = SVG_TC(features)
         elif self.model_name == "SVG_TC_TE":
             self.model = SVG_TC_TE(features)
-        elif self.model_name == "SVG_TE":
-            self.model = SVG_TE(features)
         elif self.model_name == "VG":
             self.model = VG(features)
         elif self.model_name == "VG_MMMM":
             self.model = VG_MMMM(features)
-        elif self.model_name == "SPOTS_VG_ACTP":
-            self.model = SPOTS_VG_ACTP(features)
-        elif self.model_name == "SPOTS_SVG_ACTP_occ":
-            self.model = SPOTS_SVG_ACTP_occ(features)
         elif self.model_name == "SVG_TC_occ":
             self.model = SVG_TC_occ(features)
         elif self.model_name == "SVG_TC_TE_occ":
             self.model = SVG_TC_TE_occ(features)
-        elif self.model_name == "SPOTS_SVG_ACTP_STP":
-            self.model = SPOTS_SVG_ACTP_STP(features)
 
         print(features)
 
@@ -333,11 +301,6 @@ class UniversalModelTrainer:
             if previous_val_mean_loss < val_mae_losses / index__:
                 early_stop_clock += 1
                 previous_val_mean_loss = val_mae_losses / index__
-                # if early_stop_clock == 4 and self.training_stages[0] == "":
-                #     print("Early stopping")
-                #     break
-                # if early_stop_clock == 4 and self.training_stages[0] != "": # skip to the next training phase:
-                #     epoch = self.training_stages_epochs[self.training_stages.index(self.stage)]
             else:
                 if best_val_loss > val_mae_losses / index__:
                     print("saving model")
@@ -365,60 +328,12 @@ class UniversalModelTrainer:
             action = batch_features[0].squeeze(-1).permute(1, 0, 2).to(self.device)
             mae, kld, predictions = self.model.run(scene=images, actions=action, test=test)
 
-        elif self.model_name == "SVG_occ":
-            images = batch_features[1].permute(1, 0, 4, 3, 2).to(self.device)
-            images_occ = batch_features[6].permute(1, 0, 4, 3, 2).to(self.device)
-            action = batch_features[0].squeeze(-1).permute(1, 0, 2).to(self.device)
-            mae, kld, predictions = self.model.run(scene=images_occ, actions=action, scene_gt=images, test=test)
-
         elif self.model_name == "VG" or self.model_name == "VG_MMMM":
             images = batch_features[1].permute(1, 0, 4, 3, 2).to(self.device)
             action = batch_features[0].squeeze(-1).permute(1, 0, 2).to(self.device)
             mae, predictions = self.model.run(scene=images, actions=action, test=test)
 
-        elif self.model_name == "VTG_SE":
-            images  = batch_features[1].permute(1, 0, 4, 3, 2).to(self.device)
-            tactile = batch_features[2].permute(1, 0, 4, 3, 2).to(self.device)
-            action  = batch_features[0].squeeze(-1).permute(1, 0, 2).to(self.device)
-            scene_and_touch = torch.cat((tactile, images), 2)
-            mae, predictions = self.model.run(scene_and_touch=scene_and_touch, actions=action, test=test)
-
-        elif self.model_name == "SVTG_SE":
-            images  = batch_features[1].permute(1, 0, 4, 3, 2).to(self.device)
-            tactile = batch_features[2].permute(1, 0, 4, 3, 2).to(self.device)
-            action  = batch_features[0].squeeze(-1).permute(1, 0, 2).to(self.device)
-            scene_and_touch = torch.cat((tactile, images), 2)
-            mae, kld, predictions = self.model.run(scene_and_touch=scene_and_touch, actions=action, test=test)
-
-        elif self.model_name == "SVTG_SE_occ":
-            images  = batch_features[1].permute(1, 0, 4, 3, 2).to(self.device)
-            images_occ = batch_features[6].permute(1, 0, 4, 3, 2).to(self.device)
-            tactile = batch_features[2].permute(1, 0, 4, 3, 2).to(self.device)
-            action  = batch_features[0].squeeze(-1).permute(1, 0, 2).to(self.device)
-            scene_and_touch = torch.cat((tactile, images_occ), 2)
-            scene_and_touch_gt = torch.cat((tactile, images), 2)
-            mae, kld, predictions = self.model.run(scene_and_touch=scene_and_touch, scene_and_touch_gt=scene_and_touch_gt, actions=action, test=test)
-
-        elif self.model_name == "SPOTS_SVG_ACTP" or self.model_name == "SPOTS_SVG_PTI_ACTP" or self.model_name == "SPOTS_SVG_ACTP_STP":
-            action  = batch_features[0].squeeze(-1).permute(1, 0, 2).to(self.device)
-            images  = batch_features[1].permute(1, 0, 4, 3, 2).to(self.device)
-            tactile = torch.flatten(batch_features[3].permute(1, 0, 2, 3).to(self.device), start_dim=2)
-            mae, kld, mae_tactile, predictions, tactile = self.model.run(scene=images, tactile=tactile, actions=action, gain=self.gain, test=test, stage=self.stage)
-
-        elif self.model_name == "SPOTS_SVG_ACTP_occ":
-            action  = batch_features[0].squeeze(-1).permute(1, 0, 2).to(self.device)
-            images  = batch_features[1].permute(1, 0, 4, 3, 2).to(self.device)
-            images_occ  = batch_features[6].permute(1, 0, 4, 3, 2).to(self.device)
-            tactile = torch.flatten(batch_features[3].permute(1, 0, 2, 3).to(self.device), start_dim=2)
-            mae, kld, mae_tactile, predictions, tactile = self.model.run(scene=images_occ, tactile=tactile, actions=action, scene_gt=images, gain=self.gain, test=test, stage=self.stage)
-
-        if self.model_name == "SPOTS_VG_ACTP":
-            action = batch_features[0].squeeze(-1).permute(1, 0, 2).to(self.device)
-            images = batch_features[1].permute(1, 0, 4, 3, 2).to (self.device)
-            tactile = torch.flatten (batch_features[3].permute(1, 0, 2, 3).to(self.device), start_dim=2)
-            mae, mae_tactile, predictions, tactile = self.model.run(scene=images, tactile=tactile, actions=action,gain=self.gain, test=test, stage=self.stage)
-
-        elif self.model_name == "SVG_TC" or self.model_name == "SVG_TC_TE" or self.model_name == "SVG_TE":
+        elif self.model_name == "SVG_TC" or self.model_name == "SVG_TC_TE":
             images  = batch_features[1].permute(1, 0, 4, 3, 2).to(self.device)
             tactile = torch.flatten(batch_features[3].permute(1, 0, 2, 3).to(self.device), start_dim=2)
             action  = batch_features[0].squeeze(-1).permute(1, 0, 2).to(self.device)
@@ -511,42 +426,13 @@ def main(model_name, batch_size, lr, beta1, log_dir, optimizer, niter, seed, ima
     model_dir = model_save_path
     data_root = train_data_dir
 
-    if model_name == "SVG" or model_name == "SVG_TC" or model_name == "VG" or model_name == "VG_MMMM" or model_name == "SVG_occ" or model_name == "SVG_TC_occ":
+    if model_name == "SVG" or model_name == "SVG_TC" or model_name == "VG" or model_name == "VG_MMMM" or model_name == "SVG_TC_occ":
         g_dim = 256  # 128
         rnn_size = 256
         channels = 3
         out_channels = 3
         training_stages = [""]
         training_stages_epochs = [epochs]
-    elif model_name == "SVTG_SE" or model_name == "SVTG_SE_occ" or model_name == "VTG_SE":
-        if model_name_save_appendix== "large":
-            g_dim = 256 * 4
-            rnn_size = 256 * 4
-        else:
-            g_dim = 256 * 2
-            rnn_size = 256 * 2
-        channels = 6
-        out_channels = 6
-        training_stages = [""]
-        training_stages_epochs = [epochs]
-        tactile_size = [image_width, image_width]
-    elif model_name == "SPOTS_SVG_ACTP" or model_name == "SPOTS_VG_ACTP" or model_name == "SPOTS_SVG_ACTP_occ" or model_name == "SPOTS_SVG_PTI_ACTP"  or model_name == "SPOTS_SVG_ACTP_STP":
-        g_dim = 256
-        rnn_size = 256
-        channels = 3
-        out_channels = 3
-        training_stages = [""]
-        training_stages_epochs = [epochs]
-        tactile_size = 48
-        if training_stages == "3part"
-            g_dim = 256
-            rnn_size = 256
-            channels = 3
-            out_channels = 3
-            training_stages = ["scene_only", "tactile_loss_plus_scene_fixed", "scene_loss_plus_tactile_gradual_increase"]
-            training_stages_epochs = [35, 65, 150]
-            tactile_size = 48
-            epochs = training_stages_epochs[-1] + 1
 
     elif model_name == "SVG_TC_TE" or model_name == "SVG_TC_TE_occ" or model_name == "SVG_TE":
         g_dim = 256
