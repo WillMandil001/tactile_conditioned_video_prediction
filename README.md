@@ -3,6 +3,9 @@
 First Author: Willow Mandil
 Second Author: Amir Ghalamzan E
 
+## Requirements:
+Use the venv at robotics/tactile_prediction/venv
+
 ## Dataset Description
 Locate the dataset and its description at: 
 
