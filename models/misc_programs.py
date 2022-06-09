@@ -441,47 +441,32 @@ def datset_edge_cases():
             plt.close()
 
 def video_predictions():
-    SVG_100p = "/home/user/Robotics/SPOTS/models/universal_models/saved_models/comparison_plots/Edge_Cases/SVG_100p/test_edge_case_100p/"
-    SVG_TE_100p = "/home/user/Robotics/SPOTS/models/universal_models/saved_models/comparison_plots/Edge_Cases/SVG_TE_100p/test_edge_case_100p/"
-    SVTG_100p = "/home/user/Robotics/SPOTS/models/universal_models/saved_models/comparison_plots/Edge_Cases/SVTG_100p/test_edge_case_100p/"
-    SVTG_large_100p = "/home/user/Robotics/SPOTS/models/universal_models/saved_models/comparison_plots/Edge_Cases/SVTG_large_100p/test_edge_case_100p/"
-    SPOTS_SP_100p = "/home/user/Robotics/SPOTS/models/universal_models/saved_models/comparison_plots/Edge_Cases/SPOTS_SP_100p/test_edge_case_100p/"
-    SPOTS_STP_100p = "/home/user/Robotics/SPOTS/models/universal_models/saved_models/comparison_plots/Edge_Cases/SPOTS_STP_100p/test_edge_case_100p/"
+    SVG = "/home/willmandil/Robotics/tactile_conditioned_video_prediction/models/saved_models/SVG/model_08_06_2022_18_24/qualitative_analysis/test_seen_formatted/"
+    SVG_TC = "/home/willmandil/Robotics/tactile_conditioned_video_prediction/models/saved_models/SVG_TC/model_08_06_2022_22_00/qualitative_analysis/test_seen_formatted/"
+    SVG_TC_TE = "/home/willmandil/Robotics/tactile_conditioned_video_prediction/models/saved_models/SVG_TC_TE/model_09_06_2022_01_38/qualitative_analysis/test_seen_formatted/"
 
-    for i in range(88):
+    for i in range(18):
         GT = []
-        pred_SVG_100p = []
-        pred_SVG_TE_100p = []
-        pred_SVTG_100p = []
-        pred_SVTG_large_100p = []
-        pred_SPOTS_SP_100p = []
-        pred_SPOTS_STP_100p = []
+        pred_SVG = []
+        pred_SVG_TC = []
+        pred_SVG_TC_TE = []
 
-        try:
-            os.mkdir("/home/user/Robotics/SPOTS/models/universal_models/saved_models/push_" + str(i))
-        except:
-            pass
-
-        f, axarr = plt.subplots (1, 5)
-        for timestep in range(5):
-            GT.append(np.load(SVG_100p + "batch_0sub_batch_" + str(i) + "/gt_scene_time_step_" + str(timestep) + ".npy"))
-            pred_SVG_100p.append(np.load(SVG_100p + "batch_0sub_batch_" + str(i) + "/pred_scene_time_step_" + str(timestep) + ".npy"))
-            pred_SVG_TE_100p.append(np.load(SVG_TE_100p + "batch_0sub_batch_" + str(i) + "/pred_scene_time_step_" + str(timestep) + ".npy"))
-            pred_SVTG_100p.append(np.load(SVTG_100p + "batch_0sub_batch_" + str(i) + "/pred_scene_time_step_" + str(timestep) + ".npy"))
-            pred_SPOTS_SP_100p.append(np.load(SPOTS_SP_100p + "batch_0sub_batch_" + str(i) + "/pred_scene_time_step_" + str(timestep) + ".npy"))
+        f, axarr = plt.subplots(1, 4)
+        for timestep in range(18):
+            GT.append(np.load(SVG + "batch_"+ str(i) + "sub_batch_0/gt_scene_time_step_" + str(timestep) + ".npy"))
+            pred_SVG.append(np.load(SVG + "batch_"+ str(i) + "sub_batch_0/pred_scene_time_step_" + str(timestep) + ".npy"))
+            pred_SVG_TC.append(np.load(SVG_TC + "batch_"+ str(i) + "sub_batch_0/pred_scene_time_step_" + str(timestep) + ".npy"))
+            pred_SVG_TC_TE.append(np.load(SVG_TC_TE + "batch_"+ str(i) + "sub_batch_0/pred_scene_time_step_" + str(timestep) + ".npy"))
 
             axarr[0].imshow (cv2.cvtColor (np.transpose (GT[timestep], (1, 0, 2)), cv2.COLOR_BGR2RGB))
-            axarr[1].imshow (cv2.cvtColor (np.transpose (pred_SVG_100p[timestep], (1, 0, 2)), cv2.COLOR_BGR2RGB))
-            axarr[2].imshow (cv2.cvtColor (np.transpose (pred_SVG_TE_100p[timestep], (1, 0, 2)), cv2.COLOR_BGR2RGB))
-            axarr[3].imshow (cv2.cvtColor (np.transpose (pred_SVTG_100p[timestep], (1, 0, 2)), cv2.COLOR_BGR2RGB))
-            axarr[4].imshow (cv2.cvtColor (np.transpose (pred_SPOTS_SP_100p[timestep], (1, 0, 2)), cv2.COLOR_BGR2RGB))
-
+            axarr[1].imshow (cv2.cvtColor (np.transpose (pred_SVG[timestep], (1, 0, 2)), cv2.COLOR_BGR2RGB))
+            axarr[2].imshow (cv2.cvtColor (np.transpose (pred_SVG_TC[timestep], (1, 0, 2)), cv2.COLOR_BGR2RGB))
+            axarr[3].imshow (cv2.cvtColor (np.transpose (pred_SVG_TC_TE[timestep], (1, 0, 2)), cv2.COLOR_BGR2RGB))
             axarr[0].set_ylabel("t=" + str(timestep), fontsize=6)
             axarr[0].set_title('GT', fontsize=6)
             axarr[1].set_title('SVG', fontsize=6)
-            axarr[2].set_title('SVG-TE', fontsize=6)
-            axarr[3].set_title('SVTG', fontsize=6)
-            axarr[4].set_title('SPOTS-SP', fontsize=6)
+            axarr[2].set_title('SVG_TC', fontsize=6)
+            axarr[3].set_title('SVG_TC_TE', fontsize=6)
 
             for ii in range(len(axarr)):
                 axarr[ii].set_xticks ([])
@@ -491,7 +476,7 @@ def video_predictions():
             hspace = 0.05# 0.05  # the amount of height reserved for white space between subplots
             plt.subplots_adjust (left=None, bottom=None, right=None, top=None, wspace=wspace, hspace=hspace)
             # plt.show()
-            plt.savefig("/home/user/Robotics/SPOTS/models/universal_models/saved_models/push_" + str(i) + "/batch_0sub_batch_" + str(i) + "_timestep_" + str(timestep), dpi = 400)
+            plt.savefig("/home/willmandil/Robotics/tactile_conditioned_video_prediction/models/saved_models/performance_plots/" + "batch_" + str(i) + "sub_batch_0_timestep_" + str(timestep), dpi = 100)
 
 def test_data_samples():
     file = "/home/user/Robotics/Data_sets/PRI/Dataset3_MarkedHeavyBox/train/object_1/" + "data_sample_2022-05-16-10-12-05"
@@ -540,5 +525,5 @@ if __name__ == '__main__':
     # plot_edge_case_reduced_data_qualitative()
     # plot_reduced_data()
     # datset_edge_cases()
-    # video_predictions()
-    test_data_samples()
+    video_predictions()
+    # test_data_samples()

@@ -18,12 +18,12 @@ from sklearn import preprocessing
 from datetime import datetime
 from scipy.spatial.transform import Rotation as R
 
-dataset_path = "/home/willmandil/Robotics/Data_sets/PRI/shelf_can/"
+dataset_path = "/home/willmandil/Robotics/Data_sets/PRI/shelf_can_aid/"
 train_data_dir = dataset_path + 'train/'
-test_data_dir = dataset_path + 'test/'
+test_data_dir = dataset_path + 'test_seen/'
 train_out_dir  = dataset_path + 'train_formatted/'
-test_out_dir   = dataset_path + 'test_formatted/'
-scaler_out_dir = dataset_path + 'scaler/'
+test_out_dir   = dataset_path + 'test_seen_formatted/'
+scaler_out_dir = dataset_path + 'scaler_formatted/'
 
 for path in [train_out_dir, test_out_dir, scaler_out_dir]:
     try:
@@ -36,8 +36,9 @@ image = True
 image_height = 64
 image_width = 64
 context_length = 0
-horrizon_length = 70
+horrizon_length = 20
 one_sequence_per_test = True
+save_depth_data = False
 data_train_percentage = 1.0
 
 lines = ["smooth: " + str(smooth),
@@ -174,7 +175,10 @@ class data_formatter:
         robot_state = np.array(pd.read_csv(file + '/robot_states.csv', header=None))
         xela_sensor = np.array(np.load(file + '/tactile_states.npy'))
         image_data = np.array(np.load(file + '/color_images.npy'))
-        depth_data = np.array(np.load(file + '/depth_images.npy'))
+        if save_depth_data:
+            depth_data = np.array(np.load(file + '/depth_images.npy'))
+        else:
+            depth_data = np.array([])
         side_image = np.array(np.load(file + '/start_color_side.npy'))
 
         # convert orientation to euler, and remove column labels:

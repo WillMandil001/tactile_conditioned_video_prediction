@@ -33,7 +33,8 @@ from universal_networks.SVG_TC_TE_occ import Model as SVG_TC_TE_occ
 
 
 class BatchGenerator:
-    def __init__(self, train_percentage, train_data_dir, batch_size, image_size, num_workers, occlusion_test=False, occlusion_size=0):
+    def __init__(self, train_percentage, train_data_dir, batch_size, image_size, num_workers, device, occlusion_test=False, occlusion_size=0):
+        self.device = device
         self.batch_size = batch_size
         self.image_size = image_size
         self.num_workers = num_workers
@@ -202,7 +203,7 @@ class UniversalModelTrainer:
 
         self.model.initialise_model()
 
-        BG = BatchGenerator(self.train_percentage, self.train_data_dir, self.batch_size, self.image_width, self.num_workers)
+        BG = BatchGenerator(self.train_percentage, self.train_data_dir, self.batch_size, self.image_width, self.num_workers, self.device)
         self.train_full_loader, self.valid_full_loader = BG.load_full_data()
 
         if self.criterion == "L1":
@@ -241,7 +242,7 @@ class UniversalModelTrainer:
                         self.start_saving_now = False
                         occlusion_gain = self.occlusion_max_size
                     box_size = self.image_width * occlusion_gain
-                    BG = BatchGenerator(self.train_percentage, self.train_data_dir, self.batch_size, self.image_width, self.num_workers, self.occlusion_test, box_size)
+                    BG = BatchGenerator(self.train_percentage, self.train_data_dir, self.batch_size, self.image_width, self.num_workers, self.device, self.occlusion_test, box_size)
                     self.train_full_loader, self.valid_full_loader = BG.load_full_data()
 
             self.model.set_train()
@@ -255,38 +256,24 @@ class UniversalModelTrainer:
                     if self.gain > 0.01:
                         self.gain = 0.01
 
-                print("hello :D ", batch_features[1].shape)
                 if batch_features[1].shape[0] == self.batch_size:
-                    pass
-                else:
-                    cut_size = batch_features[0].shape[0]
-                    print(cut_size)
-                    batch_features[0] = torch.cat((batch_features[0], torch.zeros(self.batch_size - batch_features[0].shape[0], batch_features[0].shape[1], batch_features[0].shape[2])), 0)
-                    batch_features[1] = torch.cat((batch_features[1], torch.zeros(self.batch_size - batch_features[1].shape[0], batch_features[1].shape[1], batch_features[1].shape[2], batch_features[1].shape[3], batch_features[1].shape[4])), 0)
-                    batch_features[2] = torch.cat((batch_features[2], torch.zeros(self.batch_size - batch_features[2].shape[0], batch_features[2].shape[1], batch_features[2].shape[2], batch_features[2].shape[3], batch_features[2].shape[4])), 0)
-                    batch_features[3] = torch.cat((batch_features[3], torch.zeros(self.batch_size - batch_features[3].shape[0], batch_features[3].shape[1], batch_features[3].shape[2], batch_features[3].shape[3])), 0)
-                    batch_features[4] = torch.cat((batch_features[4], torch.zeros(self.batch_size - batch_features[4].shape[0])), 0)
-                    batch_features[5] = torch.cat((batch_features[5], torch.zeros(self.batch_size - batch_features[5].shape[0], batch_features[5].shape[1])), 0)
-
-                print("hello :D ", batch_features[1].shape)
-
-                mae, kld, mae_tactile, predictions = self.format_and_run_batch(batch_features, test=False)
-                epoch_mae_losses += mae.item()
-                if kld != None:
-                    epoch_kld_losses += kld.item()
-                    kld = float(kld.item())
-                else:
-                    kld = 100
-                if index:
-                    mean_mae = epoch_mae_losses / index
+                    mae, kld, mae_tactile, predictions = self.format_and_run_batch(batch_features, test=False)
+                    epoch_mae_losses += mae.item()
                     if kld != None:
-                        mean_kld = epoch_kld_losses / index
-                else:
-                    mean_kld = 0.0
-                    mean_mae = 0.0
+                        epoch_kld_losses += kld.item()
+                        kld = float(kld.item())
+                    else:
+                        kld = 100
+                    if index:
+                        mean_mae = epoch_mae_losses / index
+                        if kld != None:
+                            mean_kld = epoch_kld_losses / index
+                    else:
+                        mean_kld = 0.0
+                        mean_mae = 0.0
 
-                progress_bar.set_description("epoch: {}, ".format(epoch) + "MAE: {:.4f}, ".format(float(mae.item())) + "kld: {:.4f}, ".format(kld) + "mean MAE: {:.4f}, ".format(mean_mae) + "mean kld: {:.4f}, ".format(mean_kld))
-                progress_bar.update()
+                    progress_bar.set_description("epoch: {}, ".format(epoch) + "MAE: {:.4f}, ".format(float(mae.item())) + "kld: {:.4f}, ".format(kld) + "mean MAE: {:.4f}, ".format(mean_mae) + "mean kld: {:.4f}, ".format(mean_kld))
+                    progress_bar.update()
 
             plot_training_loss.append([mean_mae, mean_kld])
 
@@ -365,7 +352,7 @@ class UniversalModelTrainer:
 
 @click.command()
 @click.option('--model_name', type=click.Path(), default="SVG", help='Set name for prediction model, SVG, SVTG_SE, SPOTS_SVG_ACTP, SVG_TC')
-@click.option('--batch_size', type=click.INT, default=128, help='Batch size for training.')
+@click.option('--batch_size', type=click.INT, default=2, help='Batch size for training.')
 @click.option('--lr', type=click.FLOAT, default = 0.0001, help = "learning rate")
 @click.option('--beta1', type=click.FLOAT, default = 0.9, help = "Beta gain")
 @click.option('--log_dir', type=click.Path(), default = 'logs/lp', help = "Not sure :D")
@@ -373,10 +360,10 @@ class UniversalModelTrainer:
 @click.option('--niter', type=click.INT, default = 300, help = "")
 @click.option('--seed', type=click.INT, default = 1, help = "")
 @click.option('--image_width', type=click.INT, default = 64, help = "Size of scene image data")
-@click.option('--dataset', type=click.Path(), default = 'Dataset3_MarkedHeavyBox', help = "name of the dataset")
+@click.option('--dataset', type=click.Path(), default = 'shelf_can_aid', help = "name of the dataset")
 @click.option('--n_past', type=click.INT, default = 1, help = "context sequence length")
-@click.option('--n_future', type=click.INT, default = 68, help = "time horizon sequence length")
-@click.option('--n_eval', type=click.INT, default = 69, help = "sum of context and time horizon")
+@click.option('--n_future', type=click.INT, default = 19, help = "time horizon sequence length")
+@click.option('--n_eval', type=click.INT, default = 20, help = "sum of context and time horizon")
 @click.option('--prior_rnn_layers', type=click.INT, default = 3, help = "number of LSTMs in the prior model")
 @click.option('--posterior_rnn_layers', type=click.INT, default = 3, help = "number of LSTMs in the posterior model")
 @click.option('--predictor_rnn_layers', type=click.INT, default = 4, help = "number of LSTMs in the frame predictor model")
@@ -399,8 +386,8 @@ class UniversalModelTrainer:
 @click.option('--training_stages_epochs', type=click.Path(), default = "50,75,125", help = "define the end point of each training stage")
 @click.option('--num_workers', type=click.INT, default = 12, help = "number of workers used by the data loader")
 @click.option('--model_save_path', type=click.Path(), default = "/home/willmandil/Robotics/tactile_conditioned_video_prediction/models/saved_models/", help = "")
-@click.option('--train_data_dir', type=click.Path(), default = "/home/willmandil/Robotics/Data_sets/PRI/shelf_can/train_formatted/", help = "")
-@click.option('--scaler_dir', type=click.Path(), default = "/home/willmandil/Robotics/Data_sets/PRI/shelf_can/scaler/", help = "")
+@click.option('--train_data_dir', type=click.Path(), default = "/home/willmandil/Robotics/Data_sets/PRI/shelf_can_aid/train_formatted/", help = "")
+@click.option('--scaler_dir', type=click.Path(), default = "/home/willmandil/Robotics/Data_sets/PRI/shelf_can_aid/scaler_formatted/", help = "")
 @click.option('--model_name_save_appendix', type=click.Path(), default = "", help = "What to add to the save file to identify the model as a specific subset (_1c= 1 conditional frame, GTT=groundtruth tactile data)")
 @click.option('--tactile_encoder_hidden_size', type=click.INT, default = 0, help = "Size of hidden layer in tactile encoder, 200")
 @click.option('--tactile_encoder_output_size', type=click.INT, default = 0, help = "size of output layer from tactile encoder, 100")
@@ -458,7 +445,6 @@ def main(model_name, batch_size, lr, beta1, log_dir, optimizer, niter, seed, ima
         tactile_size = 48
         tactile_encoder_hidden_size = 200
         tactile_encoder_output_size = 100
-
 
     torch.manual_seed(seed)
     torch.backends.cudnn.benchmark = False

@@ -207,6 +207,12 @@ class FullDataSet:
 
         experiment_number = np.load(self.test_data_dir + value[3])
         time_steps = np.load(self.test_data_dir + value[4])
+        # print(robot_data.astype(np.float32).shape,
+        #       np.array(images).astype(np.float32).shape,
+        #       np.array(tactile_images).astype(np.float32).shape,
+        #       np.array(tactile_data).astype(np.float32).shape,
+        #       experiment_number.shape, time_steps.shape,
+        #       np.array(occ_images).astype(np.float32).shape)
         return [robot_data.astype(np.float32), np.array(images).astype(np.float32), np.array(tactile_images).astype(np.float32), np.array(tactile_data).astype(np.float32), experiment_number, time_steps, np.array(occ_images).astype(np.float32)]
 
     def add_occlusion(self, image, min_pixel, max_pixel, rand_x, rand_y):
@@ -295,6 +301,8 @@ class UniversalTester():
         self.training_stages_epochs = features["training_stages_epochs"]
         # self.model_name_save_appendix = features["model_name_save_appendix"]
 
+        print("self.batch_size", self.batch_size)
+
         try:
             self.occlusion_test = features["occlusion_test"]
             self.occlusion_max_size = features["occlusion_max_size"]
@@ -310,7 +318,7 @@ class UniversalTester():
 
         print(self.occlusion_test)
 
-        self.scene_loss_titles = ["Scene MAE: "] + ["Scene MAE T" + str(i) + ": " for i in range(self.n_future)] + ["Scene MSE: "] + ["Scene MSE T" + str(i) + ": " for i in range(self.n_future)] + ["Scene PSNR: "] +  ["Scene PSNR T" + str(i) + ": " for i in range(self.n_future)] + ["Scene SSIM: "] + ["Scene SSIM T" + str(i) + ": " for i in range(self.n_future)]
+        self.scene_loss_titles = ["Scene MAE: "] + ["Scene MAE T" + str(i) + ": " for i in range(self.n_future - 1)] + ["Scene MSE: "] + ["Scene MSE T" + str(i) + ": " for i in range(self.n_future - 1)] + ["Scene PSNR: "] +  ["Scene PSNR T" + str(i) + ": " for i in range(self.n_future - 1)] + ["Scene SSIM: "] + ["Scene SSIM T" + str(i) + ": " for i in range(self.n_future - 1)]
         self.tactile_loss_titles = ["Tactile MAE: ", "Tactile MAE T1: ", "Tactile MAE T5: ", "Tactile MAE T10: ",
                                     "Tactile MAE Shear X: ", "Tactile MAE Shear Y: ", "Tactile MAE Normal Z: ",
                                     "Tactile MSE: ", "Tactile MSE T1: ", "Tactile MSE T5: ", "Tactile MSE T10: ",
@@ -453,7 +461,7 @@ class UniversalTester():
                     except FileExistsError or FileNotFoundError:
                         pass
 
-                    for i in range(self.n_future):
+                    for i in range(self.n_future - 1):
                         # plt.figure(1)
                         # if self.occlusion_test and self.qual_tactile_analysis:
                         #     f, axarr = plt.subplots(1, 4, constrained_layout=True)
@@ -575,20 +583,19 @@ class UniversalTester():
 @click.command()
 @click.option('--model_name', type=click.Path(), default="SVG", help='Set name for prediction model, SVG, SVTG_SE, SVG_TC, SVG_TC_TE, SPOTS_SVG_ACTP')
 @click.option('--model_stage', type=click.Path(), default="", help='what stage of model should you test? BEST, stage1 etc.')
-@click.option('--model_folder_name', type=click.Path(), default="model_17_05_2022_16_39", help='Folder name where the model is stored')
-@click.option('--test_folder_name', type=click.Path(), default="test_edge_case_100p", help='Folder name where the test data is stored, test_no_new_formatted, test_novel_formatted')
-@click.option('--scalar_folder_name', type=click.Path(), default="scalars_100p", help='Folder name where the test data is stored, test_no_new_formatted, test_novel_formatted')
-@click.option('--quant_analysis', type=click.BOOL, default=False, help='Perform quantitative analysis on the test data')
-@click.option('--qual_analysis', type=click.BOOL, default=False, help='Perform qualitative analysis on the test data')
+@click.option('--model_folder_name', type=click.Path(), default="model_31_05_2022_14_02", help='Folder name where the model is stored')
+@click.option('--test_folder_name', type=click.Path(), default="train_formatted", help='Folder name where the test data is stored, test_no_new_formatted, test_novel_formatted')
+@click.option('--scalar_folder_name', type=click.Path(), default="scaler", help='Folder name where the test data is stored, test_no_new_formatted, test_novel_formatted')
+@click.option('--quant_analysis', type=click.BOOL, default=True, help='Perform quantitative analysis on the test data')
+@click.option('--qual_analysis', type=click.BOOL, default=True, help='Perform qualitative analysis on the test data')
 @click.option('--qual_tactile_analysis', type=click.BOOL, default=False, help='Perform qualitative analysis on the test tactile data')
 @click.option('--test_sample_time_step', type=click.Path(), default="[1, 2, 10]", help='which time steps in prediciton sequence to calculate performance metrics for.')
 @click.option('--model_name_save_appendix', type=click.Path(), default = "", help = "What to add to the save file to identify the model as a specific subset, _1c")
-@click.option('--test_data_dir', type=click.Path(), default = "/home/willmandil/Robotics/Data_sets/PRI/Dataset3_MarkedHeavyBox/", help = "What to add to the save file to identify the model as a specific subset, _1c")
-@click.option('--scaler_dir', type=click.Path(), default = "/home/willmandil/Robotics/Data_sets/PRI/Dataset3_MarkedHeavyBox/", help = "What to add to the save file to identify the model as a specific subset, _1c")
+@click.option('--test_data_dir', type=click.Path(), default = "/home/willmandil/Robotics/Data_sets/PRI/shelf_can_aid/", help = "What to add to the save file to identify the model as a specific subset, _1c")
+@click.option('--scaler_dir', type=click.Path(), default = "/home/willmandil/Robotics/Data_sets/PRI/shelf_can_aid/", help = "What to add to the save file to identify the model as a specific subset, _1c")
 def main(model_name, model_stage, model_folder_name, test_folder_name, scalar_folder_name, quant_analysis, qual_analysis, qual_tactile_analysis, test_sample_time_step, model_name_save_appendix, test_data_dir, scaler_dir):
-
     # Lab PC
-    model_save_path = "/home/willmandil/Robotics/SPOTS/models/universal_models/saved_models/" + model_name + "/" + model_folder_name + "/"
+    model_save_path = "/home/willmandil/Robotics/tactile_conditioned_video_prediction/models/saved_models/" + model_name + "/" + model_folder_name + "/"
     test_data_dir   =  test_data_dir + test_folder_name + "/"
     scaler_dir      = scaler_dir + model_folder_name + "/"
 
@@ -598,13 +605,10 @@ def main(model_name, model_stage, model_folder_name, test_folder_name, scalar_fo
     except FileExistsError or FileNotFoundError:
         pass
 
-    if model_name == "SPOTS_SVG_ACTP" or model_name == "SPOTS_VG_ACTP" or model_name == "SPOTS_SVG_ACTP_occ" or model_name == "SPOTS_SVG_PTI_ACTP" or model_name == "SPOTS_SVG_ACTP_STP":
-        model_save_name = model_name + "_" + model_stage
-    else:
-        model_save_name = model_name + "_model"
+    model_save_name = model_name + "_model"
     print(model_save_name)
     print(test_folder_name)
-    quant_test = np.array([[0, i] for i in range(0, 63, 3)])
+    quant_test = np.array([[0, i] for i in range(0, 2)])
 
     MT = UniversalTester(data_save_path, model_save_path, test_data_dir, scaler_dir, model_save_name, model_folder_name, test_folder_name, model_stage, quant_analysis, qual_analysis, qual_tactile_analysis, quant_test, model_name_save_appendix)
 
